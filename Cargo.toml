@@ -3,6 +3,14 @@ name = "display-link"
 version = "0.1.0"
 authors = ["tyler <tyler@brainiumstudios.com>"]
 edition = "2018"
+keywords = ["CVDisplayLink", "CADisplayLink", "ios", "macos", "apple"]
+description = "rusty bindings to apples CADisplayLink/CVDisplayLink interface"
+license = "MIT"
+repository = "http://github.com/BrainiumLLC/display-link"
+documentation = "https://docs.rs/display-link"
+
+[package.metadata.docs.rs]
+default-target = "x86_64-apple-darwin"
 
 [dependencies]
 failure = "0.1.3"
