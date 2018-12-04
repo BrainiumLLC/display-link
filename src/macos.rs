@@ -6,7 +6,7 @@ use crate::{
     macos::cvdisplaylink::{CVDisplayLink, CVTimeStamp, DisplayLink as RawDisplayLink},
     PauseError, ResumeError,
 };
-use std::{ffi::c_void, mem, panic, process, time::Instant};
+use std::{any::Any, ffi::c_void, mem, panic, process, time::Instant};
 
 unsafe extern "C" fn render<F>(
     _: *mut CVDisplayLink,
@@ -34,6 +34,7 @@ where
 #[derive(Debug)]
 pub struct DisplayLink {
     is_paused:    bool,
+    func:         Box<Any>,
     display_link: RawDisplayLink,
 }
 
@@ -48,17 +49,19 @@ impl Drop for DisplayLink {
 }
 
 impl DisplayLink {
-    /// leaks callback. not sure if it's safe to deallocate since CVDisplayLink uses another thread
     pub fn new<F>(callback: F) -> Option<Self>
     where
         F: 'static + FnMut(Instant) + Send,
     {
-        let raw = Box::into_raw(Box::new(callback));
+        let func = Box::new(callback);
         unsafe {
+            let raw = Box::into_raw(func);
+            let func = Box::from_raw(raw);
             let mut display_link = RawDisplayLink::new()?;
             display_link.set_output_callback(render::<F>, raw as *mut c_void);
             Some(DisplayLink {
                 is_paused: true,
+                func,
                 display_link,
             })
         }

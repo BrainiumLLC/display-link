@@ -11,15 +11,18 @@ pub enum CVDisplayLink {}
 
 foreign_type! {
     type CType = CVDisplayLink;
-    fn drop = CFRelease;
-    fn clone = CFRetain;
+    fn drop = CVDisplayLinkRelease;
+    fn clone = CVDisplayLinkRetain;
     pub struct DisplayLink;
     pub struct DisplayLinkRef;
 }
 
 impl Debug for DisplayLink {
     fn fmt(&self, formatter: &mut Formatter) -> Result {
-        write!(formatter, "{:?}", self.as_ptr())
+        formatter
+            .debug_tuple("DisplayLink")
+            .field(&self.as_ptr())
+            .finish()
     }
 }
 
@@ -62,8 +65,8 @@ extern "C" {
     ) -> i32;
     pub fn CVDisplayLinkStart(display_link: &mut DisplayLinkRef) -> i32;
     pub fn CVDisplayLinkStop(display_link: &mut DisplayLinkRef) -> i32;
-    pub fn CFRelease(display_link: *mut CVDisplayLink);
-    pub fn CFRetain(display_link: *mut CVDisplayLink) -> *mut CVDisplayLink;
+    pub fn CVDisplayLinkRelease(display_link: *mut CVDisplayLink);
+    pub fn CVDisplayLinkRetain(display_link: *mut CVDisplayLink) -> *mut CVDisplayLink;
 }
 
 impl DisplayLink {
