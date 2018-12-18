@@ -2,7 +2,7 @@
 
 use objc::{
     class, msg_send,
-    runtime::{Object, Sel},
+    runtime::{Object, Sel, BOOL},
     sel, sel_impl,
 };
 use objc_foundation::NSString;
@@ -19,6 +19,7 @@ pub enum CADisplayLink {}
 
 foreign_obj_type! {
     type CType = CADisplayLink;
+    fn drop = invalidate;
     pub struct DisplayLink;
     pub struct DisplayLinkRef;
 }
@@ -37,7 +38,7 @@ impl DisplayLinkRef {
             self,
             addToRunLoop: run_loop
             forMode: mode
-        ];
+        ]
     }
 
     /// Calls `self.add_to_run_loop_for_mode([NSRunLoop currentRunLoop], NSRunLoopCommonModes)`
@@ -48,8 +49,22 @@ impl DisplayLinkRef {
         )
     }
 
-    /// Apple docs: [invalidate](https://developer.apple.com/documentation/quartzcore/cadisplaylink/1621293-invalidate?language=objc)
-    pub unsafe fn invalidate(&mut self) {
-        msg_send![self, invalidate];
+    /// Apple docs: [paused](https://developer.apple.com/documentation/quartzcore/cadisplaylink/1621229-paused?language=objc)
+    ///
+    /// This is documented as being thread safe.
+    pub unsafe fn set_paused(&self, paused: BOOL) {
+        msg_send![self, setPaused: paused]
     }
+
+    /// Apple docs: [paused](https://developer.apple.com/documentation/quartzcore/cadisplaylink/1621229-paused?language=objc)
+    ///
+    /// This is documented as being thread safe.
+    pub unsafe fn is_paused(&self) -> BOOL {
+        msg_send![self, isPaused]
+    }
+}
+
+/// Apple docs: [invalidate](https://developer.apple.com/documentation/quartzcore/cadisplaylink/1621293-invalidate?language=objc)
+unsafe fn invalidate(p: *mut CADisplayLink) {
+    msg_send![p, invalidate]
 }

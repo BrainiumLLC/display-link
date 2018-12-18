@@ -2,32 +2,13 @@
 
 macro_rules! foreign_obj_type {
     {type CType = $raw_ident:ident;
-    pub struct $owned_ident:ident;
-    pub struct $ref_ident:ident;
-    type ParentType = $parent_ref:ident;
-    } => {
-        foreign_obj_type! {
-            type CType = $raw_ident;
-            pub struct $owned_ident;
-            pub struct $ref_ident;
-        }
-
-        impl ::std::ops::Deref for $ref_ident {
-            type Target = $parent_ref;
-
-            fn deref(&self) -> &$parent_ref {
-                unsafe { &*(self as *const $ref_ident as *const $parent_ref)  }
-            }
-        }
-    };
-    {type CType = $raw_ident:ident;
+    fn drop = $drop_func:ident;
     pub struct $owned_ident:ident;
     pub struct $ref_ident:ident;
     } => {
         foreign_types::foreign_type! {
             type CType = $raw_ident;
-            fn drop = $crate::ios::obj_drop;
-            fn clone = $crate::ios::obj_clone;
+            fn drop = $drop_func;
             pub struct $owned_ident;
             pub struct $ref_ident;
         }
@@ -63,7 +44,7 @@ use objc::{
     class,
     declare::ClassDecl,
     msg_send,
-    runtime::{Object, Sel},
+    runtime::{Object, Sel, NO, YES},
     sel, sel_impl,
 };
 use std::{
@@ -75,7 +56,6 @@ use std::{
 
 #[derive(Debug)]
 pub struct DisplayLink {
-    is_paused:     bool,
     display_link:  RawDisplayLink,
     raw_callback:  *mut c_void,
     drop_callback: unsafe fn(*mut c_void),
@@ -83,12 +63,7 @@ pub struct DisplayLink {
 
 impl Drop for DisplayLink {
     fn drop(&mut self) {
-        if !self.is_paused {
-            unsafe {
-                self.display_link.invalidate();
-                (self.drop_callback)(self.raw_callback)
-            }
-        }
+        unsafe { (self.drop_callback)(self.raw_callback) }
     }
 }
 
@@ -148,7 +123,7 @@ impl DisplayLink {
         });
 
         let raw_callback;
-        let display_link = unsafe {
+        let mut display_link = unsafe {
             let callback = {
                 let dl_callback: *mut Object = msg_send![class!(DisplayLinkCallbackHolder), alloc];
                 let dl_callback: *mut Object = msg_send![dl_callback, init];
@@ -163,15 +138,20 @@ impl DisplayLink {
                 dl_callback.set_ivar::<*mut c_void>("_data", raw_callback);
                 dl_callback
             };
-            RawDisplayLink::with_target_selector(callback, sel!(call:))
+            let dl = RawDisplayLink::with_target_selector(callback, sel!(call:));
+            // let () = msg_send![callback, release]; // retained by displaylink
+            dl
         };
+        unsafe {
+            display_link.set_paused(YES);
+            display_link.add_to_current();
+        }
 
         unsafe fn drop_callback<F: 'static + FnMut(Instant) + Send>(callback: *mut c_void) {
             ptr::drop_in_place::<Callback<F>>(callback as _)
         }
 
         Some(DisplayLink {
-            is_paused: true,
             display_link,
             raw_callback,
             drop_callback: drop_callback::<F>,
@@ -179,29 +159,27 @@ impl DisplayLink {
     }
 
     pub fn is_paused(&self) -> bool {
-        self.is_paused
+        unsafe { self.display_link.is_paused() }
     }
 
     pub fn pause(&mut self) -> Result<(), PauseError> {
-        if self.is_paused {
+        if self.is_paused() {
             Err(PauseError::AlreadyPaused)
         } else {
             unsafe {
-                self.display_link.invalidate();
+                self.display_link.set_paused(YES);
             }
-            self.is_paused = true;
             Ok(())
         }
     }
 
     pub fn resume(&mut self) -> Result<(), ResumeError> {
-        if !self.is_paused {
+        if !self.is_paused() {
             Err(ResumeError::AlreadyRunning)
         } else {
             unsafe {
-                self.display_link.add_to_current();
+                self.display_link.set_paused(NO);
             }
-            self.is_paused = false;
             Ok(())
         }
     }
@@ -210,14 +188,4 @@ impl DisplayLink {
 struct Callback<F: 'static + FnMut(Instant) + Send> {
     start_time: Option<(f64, Instant)>,
     f:          F,
-}
-
-#[inline]
-unsafe fn obj_drop<T>(p: *mut T) {
-    msg_send![(p as *mut Object), release];
-}
-
-#[inline]
-unsafe fn obj_clone<T: 'static>(p: *mut T) -> *mut T {
-    msg_send![(p as *mut Object), retain]
 }
