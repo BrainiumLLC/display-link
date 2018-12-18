@@ -103,7 +103,6 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant) + Send>(
 
         let t: f64 = msg_send![display_link, timestamp];
         let duration: f64 = msg_send![display_link, duration];
-        let t = t + duration;
 
         let (start_os, start_rust) = match callback.start_time {
             Some((start_os, start_rust)) => (start_os, start_rust),
@@ -111,14 +110,15 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant) + Send>(
                 let os_cur_time = cadisplaylink::CACurrentMediaTime();
                 let rust_cur_time = Instant::now();
                 let start_os = t;
-                debug_assert!(start_os >= os_cur_time);
-                let d = start_os - os_cur_time;
+                debug_assert!(start_os <= os_cur_time);
+                let d = os_cur_time - start_os;
                 let d = Duration::from_float_secs(d);
-                let start_rust = rust_cur_time + d;
+                let start_rust = rust_cur_time - d;
                 callback.start_time = Some((start_os, start_rust));
                 (start_os, start_rust)
             }
         };
+        let t = t + duration;
 
         let diff = Duration::from_float_secs(t - start_os);
         let instant = start_rust + diff;
