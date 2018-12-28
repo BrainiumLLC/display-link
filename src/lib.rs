@@ -1,15 +1,10 @@
 #![feature(duration_float)]
 
-mod ios;
-mod macos;
+pub mod ios;
+pub mod macos;
 
 use failure::Fail;
 use std::time::Instant;
-
-#[cfg(target_os = "ios")]
-pub use crate::ios::cadisplaylink;
-#[cfg(target_os = "macos")]
-pub use crate::macos::cvdisplaylink;
 
 #[cfg(target_os = "ios")]
 use crate::ios::DisplayLink as PlatformDisplayLink;

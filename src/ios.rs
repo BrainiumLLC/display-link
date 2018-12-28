@@ -67,7 +67,7 @@ impl Drop for DisplayLink {
     }
 }
 
-extern "C" fn run_callback<F: 'static + FnMut(Instant) + Send>(
+extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
     this: &Object,
     _: Sel,
     display_link: *mut Object,
@@ -105,9 +105,12 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant) + Send>(
 }
 
 impl DisplayLink {
+    /// Creates a new iOS `DisplayLink` instance.
+    ///
+    /// iOS does _not_ require the callback to be `Send`.
     pub fn new<F>(callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(Instant),
     {
         static CALLBACK_CLASS_CREATOR: Once = Once::new();
         CALLBACK_CLASS_CREATOR.call_once(|| {
@@ -147,7 +150,7 @@ impl DisplayLink {
             display_link.add_to_current();
         }
 
-        unsafe fn drop_callback<F: 'static + FnMut(Instant) + Send>(callback: *mut c_void) {
+        unsafe fn drop_callback<F: 'static + FnMut(Instant)>(callback: *mut c_void) {
             ptr::drop_in_place::<Callback<F>>(callback as _)
         }
 
@@ -185,7 +188,7 @@ impl DisplayLink {
     }
 }
 
-struct Callback<F: 'static + FnMut(Instant) + Send> {
+struct Callback<F: 'static + FnMut(Instant)> {
     start_time: Option<(f64, Instant)>,
     f:          F,
 }

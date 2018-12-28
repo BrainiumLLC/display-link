@@ -49,6 +49,9 @@ impl Drop for DisplayLink {
 }
 
 impl DisplayLink {
+    /// Creates a new iOS `DisplayLink` instance.
+    ///
+    /// macos _does_ require the callback to be `Send`.
     pub fn new<F>(callback: F) -> Option<Self>
     where
         F: 'static + FnMut(Instant) + Send,
