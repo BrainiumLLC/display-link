@@ -87,7 +87,7 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
                 let start_os = t;
                 debug_assert!(start_os <= os_cur_time);
                 let d = os_cur_time - start_os;
-                let d = Duration::from_float_secs(d);
+                let d = Duration::from_secs_f64(d);
                 let start_rust = rust_cur_time - d;
                 callback.start_time = Some((start_os, start_rust));
                 (start_os, start_rust)
@@ -95,7 +95,7 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
         };
         let t = t + duration;
 
-        let diff = Duration::from_float_secs(t - start_os);
+        let diff = Duration::from_secs_f64(t - start_os);
         let instant = start_rust + diff;
         (callback.f)(instant)
     }) {
