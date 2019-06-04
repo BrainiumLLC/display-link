@@ -1,6 +1,6 @@
 [package]
 name = "display-link"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["tyler <tyler@brainiumstudios.com>"]
 edition = "2018"
 keywords = ["CVDisplayLink", "CADisplayLink", "ios", "macos", "apple"]
