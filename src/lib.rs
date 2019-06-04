@@ -1,5 +1,3 @@
-#![feature(duration_float)]
-
 pub mod ios;
 pub mod macos;
 

@@ -13,9 +13,9 @@ documentation = "https://docs.rs/display-link"
 default-target = "x86_64-apple-darwin"
 
 [dependencies]
-failure = "0.1.3"
+failure = "0.1.5"
 foreign-types = "0.3.2"
 
 [target.'cfg(any(target_os = "ios"))'.dependencies]
-objc = "0.2.5"
+objc = "0.2.6"
 objc-foundation = "0.1.1"

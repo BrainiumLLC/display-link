@@ -87,7 +87,7 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
                 let start_os = t;
                 debug_assert!(start_os <= os_cur_time);
                 let d = os_cur_time - start_os;
-                let d = Duration::from_secs_f64(d);
+                let d = from_secs_f64(d);
                 let start_rust = rust_cur_time - d;
                 callback.start_time = Some((start_os, start_rust));
                 (start_os, start_rust)
@@ -95,7 +95,7 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
         };
         let t = t + duration;
 
-        let diff = Duration::from_secs_f64(t - start_os);
+        let diff = from_secs_f64(t - start_os);
         let instant = start_rust + diff;
         (callback.f)(instant)
     }) {
@@ -191,4 +191,26 @@ impl DisplayLink {
 struct Callback<F: 'static + FnMut(Instant)> {
     start_time: Option<(f64, Instant)>,
     f:          F,
+}
+
+// https://doc.rust-lang.org/std/time/struct.Duration.html#method.from_secs_f64
+fn from_secs_f64(secs: f64) -> Duration {
+    const NANOS_PER_SEC: u32 = 1_000_000_000;
+    const MAX_NANOS_F64: f64 =
+        ((std::u64::MAX as u128 + 1)*(NANOS_PER_SEC as u128)) as f64;
+    let nanos =  secs * (NANOS_PER_SEC as f64);
+    if !nanos.is_finite() {
+        panic!("got non-finite value when converting float to duration");
+    }
+    if nanos >= MAX_NANOS_F64 {
+        panic!("overflow when converting float to duration");
+    }
+    if nanos < 0.0 {
+        panic!("underflow when converting float to duration");
+    }
+    let nanos =  nanos as u128;
+    Duration::new(
+        (nanos / (NANOS_PER_SEC as u128)) as u64,
+        (nanos % (NANOS_PER_SEC as u128)) as u32,
+    )
 }
