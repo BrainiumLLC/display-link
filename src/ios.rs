@@ -162,7 +162,7 @@ impl DisplayLink {
     }
 
     pub fn is_paused(&self) -> bool {
-        unsafe { self.display_link.is_paused() }
+        NO != unsafe { self.display_link.is_paused() }
     }
 
     pub fn pause(&mut self) -> Result<(), PauseError> {
@@ -196,9 +196,8 @@ struct Callback<F: 'static + FnMut(Instant)> {
 // https://doc.rust-lang.org/std/time/struct.Duration.html#method.from_secs_f64
 fn from_secs_f64(secs: f64) -> Duration {
     const NANOS_PER_SEC: u32 = 1_000_000_000;
-    const MAX_NANOS_F64: f64 =
-        ((std::u64::MAX as u128 + 1)*(NANOS_PER_SEC as u128)) as f64;
-    let nanos =  secs * (NANOS_PER_SEC as f64);
+    const MAX_NANOS_F64: f64 = ((std::u64::MAX as u128 + 1) * (NANOS_PER_SEC as u128)) as f64;
+    let nanos = secs * (NANOS_PER_SEC as f64);
     if !nanos.is_finite() {
         panic!("got non-finite value when converting float to duration");
     }
@@ -208,7 +207,7 @@ fn from_secs_f64(secs: f64) -> Duration {
     if nanos < 0.0 {
         panic!("underflow when converting float to duration");
     }
-    let nanos =  nanos as u128;
+    let nanos = nanos as u128;
     Duration::new(
         (nanos / (NANOS_PER_SEC as u128)) as u64,
         (nanos % (NANOS_PER_SEC as u128)) as u32,
