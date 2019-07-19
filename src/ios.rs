@@ -161,6 +161,19 @@ impl DisplayLink {
         })
     }
 
+    #[cfg(feature = "winit")]
+    pub fn on_monitor<F>(_: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
+    where
+        F: 'static + FnMut(Instant) + Send,
+    {
+        Self::new(callback)
+    }
+
+    #[cfg(feature = "winit")]
+    pub fn set_current_monitor(&mut self, _: &winit::monitor::MonitorHandle) {
+        // nothing
+    }
+
     pub fn is_paused(&self) -> bool {
         NO != unsafe { self.display_link.is_paused() }
     }

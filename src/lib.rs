@@ -43,6 +43,19 @@ impl DisplayLink {
         PlatformDisplayLink::new(callback).map(DisplayLink)
     }
 
+    #[cfg(feature = "winit")]
+    pub fn on_monitor<F>(monitor: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
+    where
+        F: 'static + FnMut(Instant) + Send,
+    {
+        PlatformDisplayLink::on_monitor(monitor, callback).map(DisplayLink)
+    }
+
+    #[cfg(feature = "winit")]
+    pub fn set_current_monitor(&mut self, monitor: &winit::monitor::MonitorHandle) {
+        self.0.set_current_monitor(monitor)
+    }
+
     /// Returns `true` if the `DisplayLink` is currently paused.
     pub fn is_paused(&self) -> bool {
         self.0.is_paused()

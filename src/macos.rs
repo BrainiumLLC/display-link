@@ -34,7 +34,7 @@ where
 #[derive(Debug)]
 pub struct DisplayLink {
     is_paused:    bool,
-    func:         Box<Any>,
+    func:         Box<dyn Any>,
     display_link: RawDisplayLink,
 }
 
@@ -49,18 +49,16 @@ impl Drop for DisplayLink {
 }
 
 impl DisplayLink {
-    /// Creates a new iOS `DisplayLink` instance.
-    ///
-    /// macos _does_ require the callback to be `Send`.
-    pub fn new<F>(callback: F) -> Option<Self>
+    fn new_impl<R, F>(make_raw: R, callback: F) -> Option<Self>
     where
+        R: FnOnce() -> Option<RawDisplayLink>,
         F: 'static + FnMut(Instant) + Send,
     {
         let func = Box::new(callback);
         unsafe {
             let raw = Box::into_raw(func);
             let func = Box::from_raw(raw);
-            let mut display_link = RawDisplayLink::new()?;
+            let mut display_link = make_raw()?;
             display_link.set_output_callback(render::<F>, raw as *mut c_void);
             Some(DisplayLink {
                 is_paused: true,
@@ -68,6 +66,47 @@ impl DisplayLink {
                 display_link,
             })
         }
+    }
+
+    /// Creates a new iOS `DisplayLink` instance.
+    ///
+    /// macos _does_ require the callback to be `Send`.
+    pub fn new<F>(callback: F) -> Option<Self>
+    where
+        F: 'static + FnMut(Instant) + Send,
+    {
+        Self::new_impl(|| unsafe { RawDisplayLink::new() }, callback)
+    }
+
+    pub fn on_display<F>(display_id: u32, callback: F) -> Option<Self>
+    where
+        F: 'static + FnMut(Instant) + Send,
+    {
+        Self::new_impl(
+            || unsafe { RawDisplayLink::on_display(display_id) },
+            callback,
+        )
+    }
+
+    #[cfg(feature = "winit")]
+    pub fn on_monitor<F>(monitor: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
+    where
+        F: 'static + FnMut(Instant) + Send,
+    {
+        use winit::platform::macos::MonitorHandleExtMacOS;
+        let id = monitor.native_id();
+        Self::on_display(id, callback)
+    }
+
+    pub fn set_current_display(&mut self, display_id: u32) {
+        unsafe { self.display_link.set_current_display(display_id) }
+    }
+
+    #[cfg(feature = "winit")]
+    pub fn set_current_monitor(&mut self, monitor: &winit::monitor::MonitorHandle) {
+        use winit::platform::macos::MonitorHandleExtMacOS;
+        let id = monitor.native_id();
+        self.set_current_display(id)
     }
 
     pub fn is_paused(&self) -> bool {

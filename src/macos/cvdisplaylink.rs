@@ -58,10 +58,18 @@ extern "C" {
     pub fn CVDisplayLinkCreateWithActiveCGDisplays(
         display_link_out: *mut *mut CVDisplayLink,
     ) -> i32;
+    pub fn CVDisplayLinkCreateWithCGDisplay(
+        display_id: u32,
+        display_link_out: *mut *mut CVDisplayLink,
+    ) -> i32;
     pub fn CVDisplayLinkSetOutputCallback(
         display_link: &mut DisplayLinkRef,
         callback: CVDisplayLinkOutputCallback,
         user_info: *mut c_void,
+    ) -> i32;
+    pub fn CVDisplayLinkSetCurrentCGDisplay(
+        display_link: &mut DisplayLinkRef,
+        display_id: u32,
     ) -> i32;
     pub fn CVDisplayLinkStart(display_link: &mut DisplayLinkRef) -> i32;
     pub fn CVDisplayLinkStop(display_link: &mut DisplayLinkRef) -> i32;
@@ -80,6 +88,17 @@ impl DisplayLink {
             None
         }
     }
+
+    /// Apple docs: [CVDisplayLinkCreateWithCGDisplay](https://developer.apple.com/documentation/corevideo/1456981-cvdisplaylinkcreatewithcgdisplay?language=objc)
+    pub unsafe fn on_display(display_id: u32) -> Option<Self> {
+        let mut display_link: *mut CVDisplayLink = 0 as _;
+        let code = CVDisplayLinkCreateWithCGDisplay(display_id, &mut display_link);
+        if code == 0 {
+            Some(DisplayLink::from_ptr(display_link))
+        } else {
+            None
+        }
+    }
 }
 
 impl DisplayLinkRef {
@@ -90,6 +109,11 @@ impl DisplayLinkRef {
         user_info: *mut c_void,
     ) {
         assert_eq!(CVDisplayLinkSetOutputCallback(self, callback, user_info), 0);
+    }
+
+    /// Apple docs: [CVDisplayLinkSetCurrentCGDisplay](https://developer.apple.com/documentation/corevideo/1456768-cvdisplaylinksetcurrentcgdisplay?language=objc)
+    pub unsafe fn set_current_display(&mut self, display_id: u32) {
+        assert_eq!(CVDisplayLinkSetCurrentCGDisplay(self, display_id), 0);
     }
 
     /// Apple docs: [CVDisplayLinkStart](https://developer.apple.com/documentation/corevideo/1457193-cvdisplaylinkstart?language=objc)
