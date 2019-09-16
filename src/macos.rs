@@ -6,7 +6,8 @@ use crate::{
     macos::cvdisplaylink::{CVDisplayLink, CVTimeStamp, DisplayLink as RawDisplayLink},
     PauseError, ResumeError,
 };
-use std::{any::Any, ffi::c_void, mem, panic, process, time::Instant};
+use std::{any::Any, ffi::c_void, mem};
+use time_point::TimePoint;
 
 unsafe extern "C" fn render<F>(
     _: *mut CVDisplayLink,
@@ -17,18 +18,13 @@ unsafe extern "C" fn render<F>(
     display_link_context: *mut c_void,
 ) -> i32
 where
-    F: FnMut(Instant),
+    F: FnMut(TimePoint),
 {
-    match panic::catch_unwind(|| {
-        let in_out_timestamp = &*in_out_timestamp;
-        let time = mem::transmute(in_out_timestamp.host_time);
-        let f = &mut *(display_link_context as *mut F);
-        f(time);
-        0
-    }) {
-        Ok(o) => o,
-        _ => process::abort(),
-    }
+    let in_out_timestamp = &*in_out_timestamp;
+    let time = mem::transmute::<_, std::time::Instant>(in_out_timestamp.host_time);
+    let f = &mut *(display_link_context as *mut F);
+    f(TimePoint::from_std_instant(time));
+    0
 }
 
 #[derive(Debug)]
@@ -52,7 +48,7 @@ impl DisplayLink {
     fn new_impl<R, F>(make_raw: R, callback: F) -> Option<Self>
     where
         R: FnOnce() -> Option<RawDisplayLink>,
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(TimePoint) + Send,
     {
         let func = Box::new(callback);
         unsafe {
@@ -73,14 +69,14 @@ impl DisplayLink {
     /// macos _does_ require the callback to be `Send`.
     pub fn new<F>(callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(TimePoint) + Send,
     {
         Self::new_impl(|| unsafe { RawDisplayLink::new() }, callback)
     }
 
     pub fn on_display<F>(display_id: u32, callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(TimePoint) + Send,
     {
         Self::new_impl(
             || unsafe { RawDisplayLink::on_display(display_id) },
@@ -91,7 +87,7 @@ impl DisplayLink {
     #[cfg(feature = "winit")]
     pub fn on_monitor<F>(monitor: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(TimePoint) + Send,
     {
         use winit::platform::macos::MonitorHandleExtMacOS;
         let id = monitor.native_id();

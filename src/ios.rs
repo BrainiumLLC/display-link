@@ -47,12 +47,17 @@ use objc::{
     runtime::{Object, Sel, NO, YES},
     sel, sel_impl,
 };
-use std::{
-    ffi::c_void,
-    panic, process, ptr,
-    sync::Once,
-    time::{Duration, Instant},
-};
+use std::{ffi::c_void, panic, ptr, sync::Once};
+use time_point::{Duration, TimePoint};
+
+pub fn is_ios10() -> bool {
+    type NSInteger = std::os::raw::c_long;
+    let version: [NSInteger; 3] = unsafe {
+        let process_info: *mut Object = msg_send![class!(NSProcessInfo), processInfo];
+        msg_send![process_info, operatingSystemVersion]
+    };
+    version[0] >= 10
+}
 
 #[derive(Debug)]
 pub struct DisplayLink {
@@ -67,12 +72,12 @@ impl Drop for DisplayLink {
     }
 }
 
-extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
+extern "C" fn run_callback_pre_ios10<F: 'static + FnMut(TimePoint)>(
     this: &Object,
     _: Sel,
     display_link: *mut Object,
 ) {
-    match panic::catch_unwind(|| unsafe {
+    unsafe {
         let callback: *mut c_void = *this.get_ivar("_data");
         let callback = &mut *(callback as *mut Callback<F>);
 
@@ -83,11 +88,11 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
             Some((start_os, start_rust)) => (start_os, start_rust),
             None => {
                 let os_cur_time = cadisplaylink::CACurrentMediaTime();
-                let rust_cur_time = Instant::now();
+                let rust_cur_time = TimePoint::from_std_instant(std::time::Instant::now());
                 let start_os = t;
                 debug_assert!(start_os <= os_cur_time);
                 let d = os_cur_time - start_os;
-                let d = from_secs_f64(d);
+                let d = Duration::from_secs_f64(d);
                 let start_rust = rust_cur_time - d;
                 callback.start_time = Some((start_os, start_rust));
                 (start_os, start_rust)
@@ -95,12 +100,43 @@ extern "C" fn run_callback<F: 'static + FnMut(Instant)>(
         };
         let t = t + duration;
 
-        let diff = from_secs_f64(t - start_os);
+        let diff = Duration::from_secs_f64(t - start_os);
         let instant = start_rust + diff;
         (callback.f)(instant)
-    }) {
-        Err(_) => process::abort(),
-        _ => {}
+    }
+}
+
+extern "C" fn run_callback_ios10<F: 'static + FnMut(TimePoint)>(
+    this: &Object,
+    _: Sel,
+    display_link: *mut Object,
+) {
+    unsafe {
+        let callback: *mut c_void = *this.get_ivar("_data");
+        let callback = &mut *(callback as *mut Callback<F>);
+
+        let t: f64 = msg_send![display_link, targetTimestamp];
+        let duration: f64 = msg_send![display_link, duration];
+
+        let (start_os, start_rust) = match callback.start_time {
+            Some((start_os, start_rust)) => (start_os, start_rust),
+            None => {
+                let os_cur_time = cadisplaylink::CACurrentMediaTime();
+                let rust_cur_time = TimePoint::from_std_instant(std::time::Instant::now());
+                let start_os = t;
+                debug_assert!(start_os <= os_cur_time);
+                let d = os_cur_time - start_os;
+                let d = Duration::from_secs_f64(d);
+                let start_rust = rust_cur_time - d;
+                callback.start_time = Some((start_os, start_rust));
+                (start_os, start_rust)
+            }
+        };
+        let t = t + duration;
+
+        let diff = Duration::from_secs_f64(t - start_os);
+        let instant = start_rust + diff;
+        (callback.f)(instant)
     }
 }
 
@@ -110,17 +146,19 @@ impl DisplayLink {
     /// iOS does _not_ require the callback to be `Send`.
     pub fn new<F>(callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant),
+        F: 'static + FnMut(TimePoint),
     {
         static CALLBACK_CLASS_CREATOR: Once = Once::new();
         CALLBACK_CLASS_CREATOR.call_once(|| {
             let mut decl = ClassDecl::new("DisplayLinkCallbackHolder", class!(NSObject)).unwrap();
             decl.add_ivar::<*mut c_void>("_data");
+            let callback = if is_ios10() {
+                run_callback_ios10::<F>
+            } else {
+                run_callback_pre_ios10::<F>
+            };
             unsafe {
-                decl.add_method(
-                    sel!(call:),
-                    run_callback::<F> as extern "C" fn(&Object, Sel, *mut Object),
-                );
+                decl.add_method(sel!(call:), callback);
             }
             decl.register();
         });
@@ -150,7 +188,7 @@ impl DisplayLink {
             display_link.add_to_current();
         }
 
-        unsafe fn drop_callback<F: 'static + FnMut(Instant)>(callback: *mut c_void) {
+        unsafe fn drop_callback<F: 'static + FnMut(TimePoint)>(callback: *mut c_void) {
             ptr::drop_in_place::<Callback<F>>(callback as _)
         }
 
@@ -164,7 +202,7 @@ impl DisplayLink {
     #[cfg(feature = "winit")]
     pub fn on_monitor<F>(_: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(TimePoint) + Send,
     {
         Self::new(callback)
     }
@@ -201,28 +239,7 @@ impl DisplayLink {
     }
 }
 
-struct Callback<F: 'static + FnMut(Instant)> {
-    start_time: Option<(f64, Instant)>,
+struct Callback<F: 'static + FnMut(TimePoint)> {
+    start_time: Option<(f64, TimePoint)>,
     f:          F,
-}
-
-// https://doc.rust-lang.org/std/time/struct.Duration.html#method.from_secs_f64
-fn from_secs_f64(secs: f64) -> Duration {
-    const NANOS_PER_SEC: u32 = 1_000_000_000;
-    const MAX_NANOS_F64: f64 = ((std::u64::MAX as u128 + 1) * (NANOS_PER_SEC as u128)) as f64;
-    let nanos = secs * (NANOS_PER_SEC as f64);
-    if !nanos.is_finite() {
-        panic!("got non-finite value when converting float to duration");
-    }
-    if nanos >= MAX_NANOS_F64 {
-        panic!("overflow when converting float to duration");
-    }
-    if nanos < 0.0 {
-        panic!("underflow when converting float to duration");
-    }
-    let nanos = nanos as u128;
-    Duration::new(
-        (nanos / (NANOS_PER_SEC as u128)) as u64,
-        (nanos % (NANOS_PER_SEC as u128)) as u32,
-    )
 }

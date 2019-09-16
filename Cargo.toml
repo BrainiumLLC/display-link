@@ -1,6 +1,6 @@
 [package]
 name = "display-link"
-version = "0.1.7"
+version = "0.2.0"
 authors = ["tyler <tyler@brainiumstudios.com>"]
 edition = "2018"
 keywords = ["CVDisplayLink", "CADisplayLink", "ios", "macos", "apple"]
@@ -16,9 +16,9 @@ default-target = "x86_64-apple-darwin"
 default = []
 
 [dependencies]
-failure = "0.1.5"
 foreign-types = "0.3.2"
-winit = { version = "0.20.0-alpha2", optional = true }
+time-point = "0.1.1"
+winit = { version = "0.20.0-alpha3", optional = true }
 
 [target.'cfg(any(target_os = "ios"))'.dependencies]
 objc = "0.2.6"

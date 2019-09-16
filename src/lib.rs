@@ -1,24 +1,38 @@
 pub mod ios;
 pub mod macos;
 
-use failure::Fail;
-use std::time::Instant;
+use std::fmt::{self, Display, Formatter};
+use time_point::TimePoint;
 
 #[cfg(target_os = "ios")]
 use crate::ios::DisplayLink as PlatformDisplayLink;
 #[cfg(target_os = "macos")]
 use crate::macos::DisplayLink as PlatformDisplayLink;
 
-#[derive(Debug, Fail)]
+#[derive(Debug)]
 pub enum PauseError {
-    #[fail(display = "already paused")]
     AlreadyPaused,
 }
 
-#[derive(Debug, Fail)]
+impl Display for PauseError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            PauseError::AlreadyPaused => write!(formatter, "already paused"),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum ResumeError {
-    #[fail(display = "already running")]
     AlreadyRunning,
+}
+
+impl Display for ResumeError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ResumeError::AlreadyRunning => write!(formatter, "already running"),
+        }
+    }
 }
 
 /// `DisplayLink` is a timer object used to synchronize drawing with the refresh rate of the
@@ -27,7 +41,7 @@ pub enum ResumeError {
 pub struct DisplayLink(PlatformDisplayLink);
 
 impl DisplayLink {
-    /// Creates a new `DisplayLink` with a callback that will be invoked with the `Instant` the
+    /// Creates a new `DisplayLink` with a callback that will be invoked with the `TimePoint` the
     /// screen will next refresh.
     ///
     /// The returned `DisplayLink` will be in a paused state. Returns `None` if a `DisplayLink`
@@ -38,7 +52,7 @@ impl DisplayLink {
     /// If the callback panics, the process will be aborted.
     pub fn new<F>(callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(TimePoint) + Send,
     {
         PlatformDisplayLink::new(callback).map(DisplayLink)
     }
@@ -46,7 +60,7 @@ impl DisplayLink {
     #[cfg(feature = "winit")]
     pub fn on_monitor<F>(monitor: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
     where
-        F: 'static + FnMut(Instant) + Send,
+        F: 'static + FnMut(TimePoint) + Send,
     {
         PlatformDisplayLink::on_monitor(monitor, callback).map(DisplayLink)
     }
