@@ -18,7 +18,7 @@ default = []
 [dependencies]
 foreign-types = "0.3.2"
 time-point = "0.1.1"
-winit = { git = "https://github.com/rust-windowing/winit", rev = "ad7d4939a8be2e0d9436d43d0351e2f7599a4237", optional = true }
+winit = { version = "0.22.1", optional = true }
 
 [target.'cfg(any(target_os = "ios"))'.dependencies]
 objc = "0.2.6"
