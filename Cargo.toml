@@ -18,7 +18,7 @@ default = []
 [dependencies]
 foreign-types = "0.3.2"
 time-point = "0.1.1"
-winit = { git = "https://github.com/rust-windowing/winit", rev = "b8828105cf6231e249da279851285aecd2970b4b", optional = true }
+winit = { git = "https://github.com/francesca64/winit", branch = "android-pause", optional = true }
 
 [target.'cfg(any(target_os = "ios"))'.dependencies]
 objc = "0.2.6"
