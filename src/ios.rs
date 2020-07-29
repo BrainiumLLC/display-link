@@ -199,16 +199,14 @@ impl DisplayLink {
         })
     }
 
-    #[cfg(feature = "winit")]
-    pub fn on_monitor<F>(_: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
+    pub fn on_display<F>(_display_id: u32, callback: F) -> Option<Self>
     where
         F: 'static + FnMut(TimePoint) + Send,
     {
         Self::new(callback)
     }
 
-    #[cfg(feature = "winit")]
-    pub fn set_current_monitor(&mut self, _: &winit::monitor::MonitorHandle) {
+    pub fn set_current_display(&mut self, _display_id: u32) {
         // nothing
     }
 

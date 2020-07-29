@@ -84,25 +84,8 @@ impl DisplayLink {
         )
     }
 
-    #[cfg(feature = "winit")]
-    pub fn on_monitor<F>(monitor: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
-    where
-        F: 'static + FnMut(TimePoint) + Send,
-    {
-        use winit::platform::macos::MonitorHandleExtMacOS;
-        let id = monitor.native_id();
-        Self::on_display(id, callback)
-    }
-
     pub fn set_current_display(&mut self, display_id: u32) {
         unsafe { self.display_link.set_current_display(display_id) }
-    }
-
-    #[cfg(feature = "winit")]
-    pub fn set_current_monitor(&mut self, monitor: &winit::monitor::MonitorHandle) {
-        use winit::platform::macos::MonitorHandleExtMacOS;
-        let id = monitor.native_id();
-        self.set_current_display(id)
     }
 
     pub fn is_paused(&self) -> bool {

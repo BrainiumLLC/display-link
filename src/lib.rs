@@ -1,9 +1,6 @@
 pub mod ios;
 pub mod macos;
 
-#[cfg(feature = "winit")]
-pub use winit;
-
 use std::fmt::{self, Display, Formatter};
 use time_point::TimePoint;
 
@@ -60,17 +57,15 @@ impl DisplayLink {
         PlatformDisplayLink::new(callback).map(DisplayLink)
     }
 
-    #[cfg(feature = "winit")]
-    pub fn on_monitor<F>(monitor: &winit::monitor::MonitorHandle, callback: F) -> Option<Self>
+    pub fn on_display<F>(display_id: u32, callback: F) -> Option<Self>
     where
         F: 'static + FnMut(TimePoint) + Send,
     {
-        PlatformDisplayLink::on_monitor(monitor, callback).map(DisplayLink)
+        PlatformDisplayLink::on_display(display_id, callback).map(DisplayLink)
     }
 
-    #[cfg(feature = "winit")]
-    pub fn set_current_monitor(&mut self, monitor: &winit::monitor::MonitorHandle) {
-        self.0.set_current_monitor(monitor)
+    pub fn set_current_display(&mut self, display_id: u32) {
+        self.0.set_current_display(display_id)
     }
 
     /// Returns `true` if the `DisplayLink` is currently paused.
