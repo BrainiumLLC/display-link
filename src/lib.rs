@@ -1,6 +1,9 @@
 pub mod ios;
 pub mod macos;
 
+#[cfg(feature = "winit")]
+pub use winit;
+
 use std::fmt::{self, Display, Formatter};
 use time_point::TimePoint;
 
