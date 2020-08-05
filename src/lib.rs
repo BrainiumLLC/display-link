@@ -1,7 +1,7 @@
 pub mod ios;
 pub mod macos;
 
-use std::fmt::{self, Display, Formatter};
+use thiserror::Error;
 use time_point::TimePoint;
 
 #[cfg(target_os = "ios")]
@@ -9,30 +9,16 @@ use crate::ios::DisplayLink as PlatformDisplayLink;
 #[cfg(target_os = "macos")]
 use crate::macos::DisplayLink as PlatformDisplayLink;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PauseError {
+    #[error("already paused")]
     AlreadyPaused,
 }
 
-impl Display for PauseError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            PauseError::AlreadyPaused => write!(formatter, "already paused"),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ResumeError {
+    #[error("already running")]
     AlreadyRunning,
-}
-
-impl Display for ResumeError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ResumeError::AlreadyRunning => write!(formatter, "already running"),
-        }
-    }
 }
 
 /// `DisplayLink` is a timer object used to synchronize drawing with the refresh rate of the
