@@ -1,5 +1,7 @@
 #![cfg(target_os = "ios")]
 
+const EPSILON: f64 = 0.0001;
+
 macro_rules! foreign_obj_type {
     {type CType = $raw_ident:ident;
     fn drop = $drop_func:ident;
@@ -61,8 +63,8 @@ pub fn is_ios10() -> bool {
 
 #[derive(Debug)]
 pub struct DisplayLink {
-    display_link:  RawDisplayLink,
-    raw_callback:  *mut c_void,
+    display_link: RawDisplayLink,
+    raw_callback: *mut c_void,
     drop_callback: unsafe fn(*mut c_void),
 }
 
@@ -90,7 +92,10 @@ extern "C" fn run_callback_pre_ios10<F: 'static + FnMut(TimePoint)>(
                 let os_cur_time = cadisplaylink::CACurrentMediaTime();
                 let rust_cur_time = TimePoint::from_std_instant(std::time::Instant::now());
                 let start_os = t;
-                debug_assert!(start_os <= os_cur_time);
+                debug_assert!(
+                    start_os <= os_cur_time
+                        || (os_cur_time - start_os).abs() / os_cur_time <= EPSILON
+                );
                 let d = os_cur_time - start_os;
                 let d = Duration::from_secs_f64(d);
                 let start_rust = rust_cur_time - d;
@@ -124,7 +129,10 @@ extern "C" fn run_callback_ios10<F: 'static + FnMut(TimePoint)>(
                 let os_cur_time = cadisplaylink::CACurrentMediaTime();
                 let rust_cur_time = TimePoint::from_std_instant(std::time::Instant::now());
                 let start_os = t;
-                debug_assert!(start_os <= os_cur_time);
+                debug_assert!(
+                    start_os <= os_cur_time
+                        || (os_cur_time - start_os).abs() / os_cur_time <= EPSILON
+                );
                 let d = os_cur_time - start_os;
                 let d = Duration::from_secs_f64(d);
                 let start_rust = rust_cur_time - d;
@@ -171,7 +179,7 @@ impl DisplayLink {
 
                 let callback = Callback {
                     start_time: None,
-                    f:          callback,
+                    f: callback,
                 };
 
                 let dl_callback: &mut Object = &mut *dl_callback;
@@ -239,5 +247,5 @@ impl DisplayLink {
 
 struct Callback<F: 'static + FnMut(TimePoint)> {
     start_time: Option<(f64, TimePoint)>,
-    f:          F,
+    f: F,
 }
