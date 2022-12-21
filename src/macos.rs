@@ -6,7 +6,7 @@ use crate::{
     macos::cvdisplaylink::{CVDisplayLink, CVTimeStamp, DisplayLink as RawDisplayLink},
     PauseError, ResumeError,
 };
-use std::{any::Any, ffi::c_void, mem};
+use std::{any::Any, ffi::c_void};
 use time_point::TimePoint;
 
 unsafe extern "C" fn render<F>(
@@ -21,9 +21,8 @@ where
     F: FnMut(TimePoint),
 {
     let in_out_timestamp = &*in_out_timestamp;
-    let time = mem::transmute::<_, std::time::Instant>(in_out_timestamp.host_time);
     let f = &mut *(display_link_context as *mut F);
-    f(TimePoint::from_std_instant(time));
+    f(TimePoint::new(in_out_timestamp.host_time as _));
     0
 }
 
